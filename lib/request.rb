@@ -18,11 +18,23 @@ module LightBoxClient
 
   #Colorize Error
   class ColorizeError < StandardError; end
+  
+  #Promise broke Error
+  class PromiseFailError < StandardError; end
+
+  #String Process Error
+  class StringError < StandardError; end
 
   class Request
 
     MAX_RETRIES = 10
     REQUEST_INTERVAL = 0.2
+    SUPPORTED_STATUS = ['succ', 'fail']
+    UNKNOWN_STATUS = "Unknown response status"
+    LOG_AT_SUCC = "LightBox completed lbc request with response:"
+    LOG_AT_FAIL = "Sorry, Lightbox error, please try again later."
+    COLOR_AT_SUCC = 'green'
+    COLOR_AT_FAIL = 'red'
 
     BASIC_HEAD = {
       'content-type' => 'application/json'
@@ -76,7 +88,7 @@ module LightBoxClient
       begin
         puts msg.colorize(color.to_sym)
       rescue ColorizeError => e
-        raise LightBoxClient::LbcError.new("Pring msg with color with exception #{e}")
+        raise LightBoxClient::LbcError.new("Print colorized message with exception #{e}")
       end
     end
 
@@ -97,7 +109,7 @@ module LightBoxClient
         ret.each do |var|
           uri.gsub!(var[0], command.send(var[0]))
         end
-        uri.gsub!('<','').gsub!('>','')
+        uri.gsub!(/<|>/,'')
       end
       uri
     end
@@ -110,22 +122,40 @@ module LightBoxClient
        started = Time.now 
        request_with_retry(api, payload.to_json, method, nil, 0 )
     end
-
-    #Awesome print success response
-    #@param [Hash] resp: raw response.
-    def ap_succ_resp(resp)
-       puts_with_color('green', "[#{Time.now}] LightBox completed this request with response:")
+ 
+    #Awesome print response
+    #@param [Hash] resp: response
+    #@param [String] status: response status, should be one of SUPPORTED_STATUS
+    def ap_response(resp, status)
+       raise StringError.new(UNKNOWN_STATUS) unless SUPPORTED_STATUS.include?(status)
+       color = eval "COLOR_AT_#{status.upcase}"
+       message = eval "LOG_AT_#{status.upcase}"
+       puts_with_color(color, "[#{Time.now}] #{message}")
        ap resp, :indent => 2, :index => false
-       p 
-       puts_with_color('green', "[Time Costs] :  #{Time.now.to_i - started.to_i} seconds.")
+       puts_with_color(color, "[Time Costs] :  #{Time.now.to_i - started.to_i} seconds.")
     end
-    
-    #Awesome print failed response
-    #@param [Hash] resp: raw response.
-    def ap_fail_resp(resp)
-       puts_with_color('red', "[#{Time.now}] Sorry, Lightbox error, please try again later.")
-       ap resp 
-       puts_with_color('green', "[Time Costs] :  #{Time.now.to_i - started.to_i} seconds.")
+   
+    #Ensure the parameter is hash type
+    #@param [Hash] candidate: candidate to 
+    def promise_type(candidate, type)
+       raise PromiseFailError.new("Object type not as predicted.") unless candidate.class == type
+       candidate
+    end
+
+    #Parse redirect options
+    #@param [Hash] description: the response description
+    def parse_redirect_options(description)
+      [ description['redirect'], description['method'], promise_type(description['condition'], Hash) ] 
+    end
+
+    #Condition staus, just print the status.
+    #@param [Hash] condition: the condition to check
+    def condition_status(condition, description)
+       condition_key = condition.keys[0]
+       condition_value = condition[condition_key]
+       puts_with_color('green', "<Expect>: #{condition_key} : #{condition[condition_key]}")
+       puts_with_color('yellow', "<Current>:  #{description[condition_key]}")
+       [condition_key, condition_value ]
     end
 
     #Request lightbox server with retry.
@@ -152,25 +182,20 @@ module LightBoxClient
         end 
        
         if resp && resp['description']
-          cache_data(resp['description']["token"], 'token') if resp['description']["token"]
+          description = promise_type(resp['description'], Hash)
+          cache_data(description["token"], 'token') if description["token"]
 
-          if resp['description']['redirect']
-            redirect_api = resp['description']['redirect']
-            method = resp['description']['method'] 
-            condition = resp['description']['condition']
+          if description['redirect']
+            redirect_api, method, condition = parse_redirect_options(description)
             EM.add_timer(REQUEST_INTERVAL) do
               request_with_retry(redirect_api, {}, method, condition, retries+=1)
             end
           else
-            if condition && condition.class == Hash 
-              condition_key = condition.keys[0]
-              condition_value = condition[condition_key]
-              puts_with_color('green', "<Expect>: #{condition_key} : #{condition[condition_key]}")
-              puts_with_color('yellow', "<Current>:  #{resp['description'][condition_key]}")
-
-              if resp['success'] && resp['description'][condition_key] == condition_value
-                 resp['description'].delete('success') if resp['description']['success']
-                 ap_succ_resp(resp)
+            if condition
+              condition_key , condition_value = condition_status(condition, description)
+              if resp['success'] && description[condition_key] == condition_value
+                 resp['description'].delete('success') if description['success']
+                 ap_response(resp, 'succ')
                  EM.stop
               else
                  if retries < MAX_RETRIES
@@ -179,17 +204,17 @@ module LightBoxClient
                      request_with_retry(raw_api, {}, method, condition, retries+=1)
                    end
                  else
-                   ap_fail_resp(resp)
+                   ap_response(resp, 'fail')
                    EM.stop
                  end                   
               end
             else
               if resp['success']
-                resp['description'].delete('success') if resp['description']['success']
-                ap_succ_resp(resp)
+                resp['description'].delete('success') if description['success']
+                ap_response(resp, 'succ')
                 EM.stop
               else
-                ap_fail_resp(resp)
+                ap_response(resp, 'fail')
                 EM.stop
               end
             end
