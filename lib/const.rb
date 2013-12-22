@@ -3,8 +3,9 @@
 module LightBoxClient
   #default bridge address
   DEFAULT_LIGHTBOX_SERVER = "http://10.36.166.47:8080"
+  #supported commands, just for help
   SUPPORTED_CMDS = ['boxes', 'create-user', 'password', 'delete-user', 'create', 'delete','delete-boxes', 'info', 'agents']
-
+  #lbc will create cache file in its workspace
   WORKSPACE = ENV['HOME'] + '/.lbc'
 
   #command usages
@@ -22,6 +23,7 @@ module LightBoxClient
     }
    }
 
+  #command alias just to let operation easier
   CMDS_ALIAS = {
     'token' => 'get_token',
     'agents' => 'get_agents',
@@ -37,7 +39,10 @@ module LightBoxClient
     'register' => 'register_user'
   } 
 
-  #supported bridge apis.
+  #supported bridge apis;
+  #@api: the request uri
+  #@method: http method
+  #@need_token: if true, lbc will add token in the http head.
   LIGHTBOX_APIS = {
     :create_box => { 
         :api => "/container",
