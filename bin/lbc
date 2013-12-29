@@ -42,6 +42,7 @@ opts_parser = OptionParser.new do |opts|
   opts.on("-b Box-ID", "--boxid", "boxid")  { |boxid| options[:boxid] = boxid.to_s }
   opts.on("-i Image", "--image", "image")  { |image| options[:image] = image.to_s }
   opts.on("-n Name", "--name", "name")  { |name| options[:name] = name.to_s }
+  opts.on("-l Location", "--location", "location")  { |loc| options[:location] = loc.to_s }
   opts.on("-k Batch", "--batch", "batch")  { |batch| options[:batch] = Integer(batch) }
   opts.on("-q Batchid", "--batchid", "batchid")  { |batchid| options[:batchid] = batchid.to_s }
   opts.on("-e Email", "--email", "Email")  { |email| options[:email] = email.to_s }

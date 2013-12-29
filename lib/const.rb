@@ -11,9 +11,9 @@ module LightBoxClient
   CMDS_USAGE = { 'Examples:' => {
     'Create new user' => './lbc create-user --email 5k@baidu.com --password changeme',
     'Change password' => './lbc password --password changeme2',
-    'Create 1 redhat box' => './lbc create --name myboxes --memory 50 --image redhat',
+    'Create 1 redhat box' => './lbc create --name myboxes --memory 50 --image redhat --location 127.0.0.1',
     'Query a box with id 1' => './lbc info --boxid 1',
-    'Create 3 boxes one time' => './lbc create --name myboxes --memory 50 --image centos --port 8082,8083 --batch 3',
+    'Create 3 boxes one time' => './lbc create --name myboxes --memory 50 --image centos --port 8082,8083 --batch 3 --local 127.0.0.1',
     'Query all my boxes' => './lbc boxes',
     'Delete a box with id 1' =>  './lbc delete --boxid 1',
     'Delete all my boxes' => './lbc delete-boxes',

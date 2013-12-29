@@ -50,6 +50,7 @@ module LightBoxClient
           optional(:batch)         => Integer,
           optional(:batchid)         => String,
           optional(:name)         => String,
+          optional(:location)         => String,
           optional(:image)         => String,
           optional(:limits)         => Hash,
           optional(:ports)          => String

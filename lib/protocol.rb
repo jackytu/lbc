@@ -38,6 +38,7 @@ module LightBoxClient
       }
       payload.store('batch', command.batch) if command.batch
       payload.store('stack', command.image) if command.image
+      payload.store('location', command.location) if command.location
       ports = []
       begin
         if command.ports
