@@ -15,7 +15,7 @@ module LightBoxClient
       attributes
     end
     
-    #format bride uri, make sure it a standard http uri;
+    #format lightbox uri, make sure it a standard http uri;
     #+ @params [String] raw lightbox uri
     #+ @return [String] standard http uri
     def self.format_lightbox(lightbox)
@@ -23,11 +23,13 @@ module LightBoxClient
       lightbox
     end
 
+    #translate command from user input to real protocol method.
     def self.translate_command(command)
       cmd_alias = LightBoxClient::CMDS_ALIAS.fetch(command, nil)
       cmd_alias ||= command
       cmd_alias
     end
+
     #format lightbox style uri, erease protocol item 'http/https'.
     #+ @params [String] raw uri;
     #+ @return [String] lightbox style uri.
@@ -73,6 +75,9 @@ module LightBoxClient
     #validate the attributes of command
     def validate
       self.class.schema.validate(attributes)    
+      rescue Membrane::SchemaValidationError => ve
+        p "Validate command schema failed with #{ve}"
+      end
     end
 
     #generate the payload of http request
@@ -81,11 +86,6 @@ module LightBoxClient
       LightBoxClient::Protocol.new(self).send("#{command}_protocol")
     end
 
-    def http_json(json)
-      p json
-      JSON.generate(json).gsub(/\\/, '')
-    end
-    
     [:api, :method, :need_token].each do |key|
        define_method(key.to_s) do
          cmd_alias = LightBoxClient::CMDS_ALIAS.fetch(command, nil)

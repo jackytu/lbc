@@ -31,27 +31,56 @@ if File.exists?(work_space)
   options.store(:token, token)
   options.store(:lightbox, api_server)
 else
-
   FileUtils.mkdir_p("#{work_space}")
   ap "Created lightbox workspace at #{work_space}"
 end
 
 opts_parser = OptionParser.new do |opts|
   opts.banner = "Usage: ./lbc #{LightBoxClient::SUPPORTED_CMDS} [options] "
-  opts.on("-a Light-API", "--api", "ligt-api server")  { |api| options[:lightbox] = api.to_s }
-  opts.on("-b Box-ID", "--boxid", "boxid")  { |boxid| options[:boxid] = boxid.to_s }
-  opts.on("-i Image", "--image", "image")  { |image| options[:image] = image.to_s }
-  opts.on("-n Name", "--name", "name")  { |name| options[:name] = name.to_s }
-  opts.on("-l Location", "--location", "location")  { |loc| options[:location] = loc.to_s }
-  opts.on("-k Batch", "--batch", "batch")  { |batch| options[:batch] = Integer(batch) }
-  opts.on("-q Batchid", "--batchid", "batchid")  { |batchid| options[:batchid] = batchid.to_s }
-  opts.on("-e Email", "--email", "Email")  { |email| options[:email] = email.to_s }
-  opts.on("-P Password", "--password", "password")  { |password| options[:password] = password.to_s }
+  opts.on("-a Light-API", 
+          "--api", "ligt-api server")  { |api| 
+    options[:lightbox] = api.to_s 
+    }
+  opts.on("-l Location", 
+          "--location", "location")  { |loc| 
+    options[:location] = loc.to_s 
+   }
+  opts.on("-b Box-ID", 
+          "--boxid", "boxid")  { |boxid| 
+    options[:boxid] = boxid.to_s 
+    }
+  opts.on("-i Image", 
+          "--image", "image")  { |image| 
+    options[:image] = image.to_s 
+    }
+  opts.on("-n Name", 
+          "--name", "name")  { |name| 
+    options[:name] = name.to_s 
+    }
+  opts.on("-k Batch", 
+          "--batch", "batch")  { |batch| 
+    options[:batch] = Integer(batch) 
+    }
+  opts.on("-q Batchid", 
+          "--batchid", "batchid")  { |batchid| 
+    options[:batchid] = batchid.to_s 
+    }
+  opts.on("-e Email", 
+          "--email", "Email")  { |email| 
+    options[:email] = email.to_s 
+    }
+  opts.on("-P Password", 
+          "--password", "password")  { |password| 
+    options[:password] = password.to_s 
+    }
   opts.on("-m MEMORY", "--memory", "memory")  { |mem| 
     options[:limits] = {}
     options[:limits].store(:memory , Integer(mem))
-  }
-  opts.on("-p PORTS", "--ports", "ports")   { |ports| options[:ports] = ports.to_s }
+    }
+  opts.on("-p PORTS", 
+          "--ports", "ports")   { |ports| 
+    options[:ports] = ports.to_s 
+    }
   opts.on("-h", "--help", "show help document")   { 
     ap opts
     ap LightBoxClient::CMDS_USAGE, :index => false
@@ -70,12 +99,7 @@ options.store(:command, ARGV[0])
 EventMachine.run do
   attributes = LightBoxClient::Command.translate_attributes(options)
   command = LightBoxClient::Command.new(attributes)
-
-  begin
-    command.validate
-  rescue => e
-    raise "Light API request with exception #{e}!"
-  end
+  command.validate
 
   lightbox_request = LightBoxClient::Request.new(command)
   lightbox_request.start do |status, response|

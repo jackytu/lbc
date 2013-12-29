@@ -13,16 +13,28 @@ module LightBoxClient
     end
   end
 
-  #Parse Json error
-  class JsonError < StandardError; end
-
   #API request error
   class ApiRequestError < StandardError; end
+
+  #Colorize Error
+  class ColorizeError < StandardError; end
+  
+  #Promise broke Error
+  class PromiseFailError < StandardError; end
+
+  #String Process Error
+  class StringError < StandardError; end
 
   class Request
 
     MAX_RETRIES = 10
     REQUEST_INTERVAL = 0.2
+    SUPPORTED_STATUS = ['succ', 'fail']
+    UNKNOWN_STATUS = "Unknown response status"
+    LOG_AT_SUCC = "LightBox completed lbc request with response:"
+    LOG_AT_FAIL = "Sorry, Lightbox error, please try again later."
+    COLOR_AT_SUCC = 'green'
+    COLOR_AT_FAIL = 'red'
 
     BASIC_HEAD = {
       'content-type' => 'application/json'
@@ -42,11 +54,7 @@ module LightBoxClient
     
     def initialize(command)
       @command = command
-      if command.lightbox
-        fh = File.open("#{LightBoxClient::WORKSPACE}/server", 'w')
-        fh.puts command.lightbox
-        fh.close
-      end
+      cache_data(command.lightbox, 'server') if command.lightbox
 
       if command.need_token
          BASIC_HEAD.store('auth', command.token)
@@ -59,6 +67,31 @@ module LightBoxClient
       @started = Time.now
     end
  
+    #Cache the server uri to local file
+    #@param [String] data: data to cache
+    #@param [String] file: file for cache
+    def cache_data(data, file)
+      begin
+        fh = File.open("#{LightBoxClient::WORKSPACE}/#{file}", 'w')
+        fh.puts data
+      rescue LightBoxClient::CacheError => e
+        raise LightBoxClient::LbcError.new("Cache data failed with exception #{e}")
+      ensure
+        fh.close
+      end
+    end
+
+    #Puts message with color
+    #@param [String] color: the color will be msg like
+    #@param [String] msg: the msg to be puts
+    def puts_with_color(color, msg)    
+      begin
+        puts msg.colorize(color.to_sym)
+      rescue ColorizeError => e
+        raise LightBoxClient::LbcError.new("Print colorized message with exception #{e}")
+      end
+    end
+
     #Combine the lightbox uri
     #@param [String] raw_api: raw request api for lightbox server
     def lightbox_uri(raw_api)
@@ -76,7 +109,7 @@ module LightBoxClient
         ret.each do |var|
           uri.gsub!(var[0], command.send(var[0]))
         end
-        uri.gsub!('<','').gsub!('>','')
+        uri.gsub!(/<|>/,'')
       end
       uri
     end
@@ -84,39 +117,45 @@ module LightBoxClient
     #Start the request
     #@param [Block] &blk: Add block here in case hook is needed.
     def start(&blk)
-       puts "[#{Time.now}] Starting #{command.command} with options: ".colorize(:green)
+       puts_with_color('green', "[#{Time.now}] Starting #{command.command} with options: ")
        ap command.payload, {:index => false, :indent => 4}
        started = Time.now 
        request_with_retry(api, payload.to_json, method, nil, 0 )
     end
-
-    #Cache user token in the token file.
-    #@param [String] token: token to cache
-    def cache_token(token)
-      begin
-        fh = File.open("#{LightBoxClient::WORKSPACE}/token", 'w')
-        fh.puts token
-        fh.close      
-      rescue LightBoxClient::CacheError => e
-        raise LightBoxClient::LbcError.new("Cache token failed with exception #{e}")
-      end
-    end
-
-    #Awesome print success response
-    #@param [Hash] resp: raw response.
-    def ap_succ_resp(resp)
-       puts "[#{Time.now}] LightBox completed this request with response:".colorize(:green)
+ 
+    #Awesome print response
+    #@param [Hash] resp: response
+    #@param [String] status: response status, should be one of SUPPORTED_STATUS
+    def ap_response(resp, status)
+       raise StringError.new(UNKNOWN_STATUS) unless SUPPORTED_STATUS.include?(status)
+       color = eval "COLOR_AT_#{status.upcase}"
+       message = eval "LOG_AT_#{status.upcase}"
+       puts_with_color(color, "[#{Time.now}] #{message}")
        ap resp, :indent => 2, :index => false
-       p 
-       puts "[Time Costs] :  #{Time.now.to_i - started.to_i} seconds.".colorize(:green)
+       puts_with_color(color, "[Time Costs] :  #{Time.now.to_i - started.to_i} seconds.")
     end
-    
-    #Awesome print failed response
-    #@param [Hash] resp: raw response.
-    def ap_fail_resp(resp)
-       puts "[#{Time.now}] Sorry, Lightbox error, please try again later.".colorize(:red)
-       ap resp 
-       puts "[Time Costs] :  #{Time.now.to_i - started.to_i} seconds.".colorize(:green)
+   
+    #Ensure the parameter is hash type
+    #@param [Hash] candidate: candidate to 
+    def promise_type(candidate, type)
+       raise PromiseFailError.new("Object type not as predicted.") unless candidate.class == type
+       candidate
+    end
+
+    #Parse redirect options
+    #@param [Hash] description: the response description
+    def parse_redirect_options(description)
+      [ description['redirect'], description['method'], promise_type(description['condition'], Hash) ] 
+    end
+
+    #Condition staus, just print the status.
+    #@param [Hash] condition: the condition to check
+    def condition_status(condition, description)
+       condition_key = condition.keys[0]
+       condition_value = condition[condition_key]
+       puts_with_color('green', "<Expect>: #{condition_key} : #{condition[condition_key]}")
+       puts_with_color('yellow', "<Current>:  #{description[condition_key]}")
+       [condition_key, condition_value ]
     end
 
     #Request lightbox server with retry.
@@ -133,69 +172,62 @@ module LightBoxClient
                     :body => payload
                   }
            )
-      p "payload is #{payload}" 
       http.callback {
         begin
           resp = Yajl::Parser.parse(http.response)
-          p "resp is #{http.response}"
-        rescue LightBoxClient::JsonError => e
-          puts "Parse Json with exception #{LightBoxClient::LbcError.new(e)}.".colorize(:red)
+        rescue ParserError => e
+          puts_with_color('red', "Parse Json with exception #{LightBoxClient::LbcError.new(e)}.")
           ap http.response, :index => false, :indent => 2
           EM.stop
         end 
        
         if resp && resp['description']
-          cache_token(resp['description']["token"]) if resp['description']["token"]
+          description = promise_type(resp['description'], Hash)
+          cache_data(description["token"], 'token') if description["token"]
 
-          if resp['description']['redirect']
-            redirect_api = resp['description']['redirect']
-            method = resp['description']['method'] 
-            condition = resp['description']['condition']
+          if description['redirect']
+            redirect_api, method, condition = parse_redirect_options(description)
             EM.add_timer(REQUEST_INTERVAL) do
               request_with_retry(redirect_api, {}, method, condition, retries+=1)
             end
           else
-            if condition 
-              condition_key = condition.keys[0]
-              condition_value = condition[condition_key]
-              puts "<Expect>: #{condition_key} : #{condition[condition_key]}".colorize(:green) 
-              puts "<Current>:  #{resp['description'][condition_key]}".colorize(:yellow)
-
-              if resp['success'] && resp['description'][condition_key] == condition_value
-                 resp['description'].delete('success') if resp['description']['success']
-                 ap_succ_resp(resp)
+            if condition
+              condition_key , condition_value = condition_status(condition, description)
+              if resp['success'] && description[condition_key] == condition_value
+                 resp['description'].delete('success') if description['success']
+                 ap_response(resp, 'succ')
                  EM.stop
               else
                  if retries < MAX_RETRIES
-                   puts "[#{Time.now}] Still working.".colorize(:green)
+                   puts_with_color('green', "[#{Time.now}] Still working.")
                    EM.add_timer(REQUEST_INTERVAL) do
                      request_with_retry(raw_api, {}, method, condition, retries+=1)
                    end
                  else
-                   ap_fail_resp(resp)
+                   ap_response(resp, 'fail')
                    EM.stop
                  end                   
               end
             else
               if resp['success']
-                resp['description'].delete('success') if resp['description']['success']
-                ap_succ_resp(resp)
+                resp['description'].delete('success') if description['success']
+                ap_response(resp, 'succ')
                 EM.stop
               else
-                ap_fail_resp(resp)
+                ap_response(resp, 'fail')
                 EM.stop
               end
             end
           end
         else
-          puts "Fanally failed without response.".colorize(:red)
+          puts_with_color('red', "Fanally failed without response.")
           ap resp, :index => false, :indent => 2
           EM.stop
         end
       }
 
       http.errback {
-        puts "Error occurred: #{http.error}".colorize(:red)
+        puts_with_color('red', "Error occurred: #{http.error}")
         EM.stop
       } 
     end 
