@@ -36,6 +36,11 @@ module LightBoxClient
            'mem' => command.limits[:memory]
          }
       }
+      payload['limits'].store('cpu', command.limits[:cpu]) if command.limits[:cpu]
+      payload['limits'].store('disk', command.limits[:disk]) if command.limits[:disk]
+      payload['limits'].store('fds', command.limits[:fds]) if command.limits[:fds]
+      payload['limits'].store('rate', command.limits[:rate]) if command.limits[:rate]
+      payload['limits'].store('burst', command.limits[:burst]) if command.limits[:burst]
       payload.store('batch', command.batch) if command.batch
       payload.store('stack', command.image) if command.image
       payload.store('location', command.location) if command.location

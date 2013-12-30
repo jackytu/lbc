@@ -45,6 +45,28 @@ opts_parser = OptionParser.new do |opts|
           "--location", "location")  { |loc| 
     options[:location] = loc.to_s 
    }
+  opts.on("-c Cpu",
+          "--cpu", "cpu shares")  { |cpu|
+    options[:limits] ||= {}
+    options[:limits].store(:cpu , Integer(cpu))
+   }
+  opts.on("-d Disk",
+          "--disk", "disk quota")  { |disk|
+    options[:limits] ||= {}
+    options[:limits].store(:disk , Integer(disk))
+   }
+  opts.on("--fds fds", "fds")  { |fds|
+    options[:limits] ||= {}
+    options[:limits].store(:fds , Integer(fds))
+   }
+  opts.on("--rate rate", "network bandwidth rate")  { |rate|
+    options[:limits] ||= {}
+    options[:limits].store(:rate , Integer(rate))    
+   }
+  opts.on("--burst burst", "network bandwidth burst")  { |burst|
+    options[:limits] ||= {}
+    options[:limits].store(:burst , Integer(burst))
+   }
   opts.on("-b Box-ID", 
           "--boxid", "boxid")  { |boxid| 
     options[:boxid] = boxid.to_s 
@@ -96,6 +118,7 @@ end
 
 options.store(:command, ARGV[0]) 
 
+p options
 EventMachine.run do
   attributes = LightBoxClient::Command.translate_attributes(options)
   command = LightBoxClient::Command.new(attributes)

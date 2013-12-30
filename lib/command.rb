@@ -42,20 +42,25 @@ module LightBoxClient
     def self.schema
       Membrane::SchemaParser.parse do
         {
-          :command                  => enum('get_agents', 'get_token', 'register_user', 'create_user', 'update_user', 'delete_user', 'create_box', 'delete_box', 'delete_boxes', 'info_box', 'get_boxes', 'get_batch_stat'),
-          :lightbox               => String,
-          optional(:token)          => String,
-          optional(:email)          => String,
-          optional(:password)         => String,
-          optional(:newpassword)      => String,
+          :command                 => enum('get_agents', 'get_token', 'register_user', 'create_user', 'update_user', 'delete_user', 'create_box', 'delete_box', 'delete_boxes', 'info_box', 'get_boxes', 'get_batch_stat'),
+          :lightbox                => String,
+          optional(:token)         => String,
+          optional(:email)         => String,
+          optional(:password)      => String,
+          optional(:newpassword)   => String,
           optional(:boxid)         => String,
           optional(:batch)         => Integer,
-          optional(:batchid)         => String,
-          optional(:name)         => String,
-          optional(:location)         => String,
+          optional(:batchid)       => String,
+          optional(:name)          => String,
+          optional(:cpu)           => String,
+          optional(:disk)          => String,
+          optional(:fds)           => String,
+          optional(:rate)          => String,
+          optional(:burst)         => String,
+          optional(:location)      => String,
           optional(:image)         => String,
-          optional(:limits)         => Hash,
-          optional(:ports)          => String
+          optional(:limits)        => Hash,
+          optional(:ports)         => String
         }
       end
     end
@@ -74,7 +79,8 @@ module LightBoxClient
 
     #validate the attributes of command
     def validate
-      self.class.schema.validate(attributes)    
+      begin
+        self.class.schema.validate(attributes)    
       rescue Membrane::SchemaValidationError => ve
         p "Validate command schema failed with #{ve}"
       end
@@ -93,6 +99,5 @@ module LightBoxClient
          LIGHTBOX_APIS[cmd_alias.to_sym][key]
        end
     end
-
   end
 end
