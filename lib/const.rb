@@ -2,7 +2,7 @@
 
 module LightBoxClient
   #default bridge address
-  DEFAULT_LIGHTBOX_SERVER = "http://10.36.166.47:8080"
+  DEFAULT_LIGHTBOX_SERVER = "http://127.0.0.1:8080"
   #supported commands, just for help
   SUPPORTED_CMDS = ['boxes', 'create-user', 'password', 'delete-user', 'create', 'delete','delete-boxes', 'info', 'agents']
   #lbc will create cache file in its workspace
